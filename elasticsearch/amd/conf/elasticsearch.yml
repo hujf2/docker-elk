@@ -1,0 +1,18 @@
+bootstrap.memory_lock: false
+bootstrap.system_call_filter: false
+
+cluster.name: "docker-cluster"
+
+network.host: 0.0.0.0
+http.port: 9200
+transport.tcp.port: 9300
+
+discovery.type: single-node
+discovery.zen.minimum_master_nodes: 1
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+http.cors.allow-headers: X-Requested-With,X-Auth-Token,Content-Type,Content-Length,Authorization
+http.cors.allow-credentials: true
+# 解决：ElasticsearchException[X-Pack is not supported and Machine Learning is not available
+# https://blog.csdn.net/fanrenxiang/article/details/81358332
+xpack.ml.enabled: false
