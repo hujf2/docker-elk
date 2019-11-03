@@ -107,3 +107,10 @@ CMD ["elasticsearch"]
 ## idu/elasticsearch-5.6.3:arm64v8
 ## 
 ## docker exec -u root -it elasticsearch-5.6.3-arm64v8 /bin/bash
+## 
+## 三个ElasticSearch的ARM参考方案
+## https://www.huaweicloud.com/kunpeng/software/es.html
+## https://github.com/ind3x/rpi-elasticsearch/blob/master/2.4/Dockerfile
+## https://github.com/bachue/elasticsearch-with-ik/blob/master/Dockerfile
+## https://github.com/elastic/dockerfiles/blob/v6.8.4/elasticsearch/Dockerfile
+## https://github.com/gagara/docker-elk-arm64
