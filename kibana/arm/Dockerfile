@@ -32,7 +32,7 @@ RUN set -x \
 
 # grab tini for signal processing and zombie killing
 # download from https://github.com/krallin/tini/releases
-ENV TINI_VERSION v0.18.0
+#ENV TINI_VERSION v0.18.0
 COPY ./tini-arm64 /usr/local/bin/tini
 COPY ./tini-arm64.asc /usr/local/bin/tini.asc
 RUN set -x \
@@ -46,37 +46,50 @@ RUN set -x && \
     cd /tmp && \
     # && wget "https://download.elastic.co/kibana/kibana/kibana-$KIBANA_VERSION-linux-x86_64.tar.gz" \
     tar -xvzf kibana-$KIBANA_VERSION-linux-x86_64.tar.gz && \
-    mv /tmp/kibana-$KIBANA_VERSION-linux-x86_64 /opt && \
+    mv /tmp/kibana-$KIBANA_VERSION-linux-x86_64 /opt/kibana && \
     rm /tmp/kibana-$KIBANA_VERSION-linux-x86_64.tar.gz && \
-    ln -s /opt/kibana-$KIBANA_VERSION-linux-x86_64 /opt/kibana && \
     chown -R kibana:kibana /opt/kibana && \
-    chmod o+w /opt/kibana/optimize/.babelcache.json && \
-    sed -ri "s!^(\#\s*)?(elasticsearch\.url:).*!\2 'http://elasticsearch:9200'!" /opt/kibana/config/kibana.yml
-# RUN grep -q 'elasticsearch:9200' /opt/kibana/config/kibana.yml
+    chmod o+w /opt/kibana/optimize/.babelcache.json
 
 # install arm version of node
-#RUN set -x \
-#   && wget http://node-arm.herokuapp.com/node_latest_armhf.deb  \
-#   && DEBIAN_FRONTEND=noninteractive dpkg -i node_latest_armhf.deb \
-#   && ln -sf /usr/local/bin/node /opt/kibana/node/bin/node \
-#   && ln -sf /usr/local/bin/npm /opt/kibana/node/bin/npm
+#RUN set -x && \
+#    wget http://node-arm.herokuapp.com/node_latest_armhf.deb && \
+#    DEBIAN_FRONTEND=noninteractive dpkg -i node_latest_armhf.deb && \
+#    ln -sf /usr/local/bin/node /opt/kibana/node/bin/node && \
+#    ln -sf /usr/local/bin/npm /opt/kibana/node/bin/npm && \
+#    node -v && \
+#    npm -v
 
 # replace amd64 node with arm64
 #RUN rm -rf /usr/share/kibana/node/* && \
 #    curl -sL https://nodejs.org/dist/v10.15.2/node-v10.15.2-linux-arm64.tar.gz | tar -C /usr/share/kibana/node/ --strip-components=1 -xzf -
+# ubuntu18.04安装最新nodejs - https://blog.csdn.net/zyccode/article/details/90106478
+# https://github.com/nodejs/node/blob/master/BUILDING.md#building-nodejs-on-supported-platforms
+# https://nodejs.org/fr/blog/release/v13.0.1/
+ENV NODE_HOME /opt/kibana/node
+ENV PATH $NODE_HOME/bin:$PATH
+
 COPY ./node-v10.15.2-linux-arm64.tar.gz ./node-v10.15.2-linux-arm64.tar.gz
-RUN rm -rf /usr/share/kibana/node/* && \
-    tar -C /opt/kibana/node/ --strip-components=1 -xzf ./node-v10.15.2-linux-arm64.tar.gz && \
-    ln -sf /usr/local/bin/node /opt/kibana/node/bin/node && \
-    ln -sf /usr/local/bin/npm /opt/kibana/node/bin/npm
+RUN rm -rf /opt/kibana/node/* && \
+    tar -xvf ./node-v10.15.2-linux-arm64.tar.gz -C /opt/kibana/node/ --strip-components=1 && \
+    ln -sf /opt/kibana/node/bin/node /usr/local/bin/node && \
+    ln -sf /opt/kibana/node/bin/npm /usr/local/bin/npm && \
+    node -v && \
+    npm -v
 
 ENV PATH /opt/kibana/bin:$PATH
 
 COPY docker-entrypoint.sh /
-RUN chmod +x /docker-entrypoint.sh
-
+COPY ./config/kibana.yml /opt/kibana/config/kibana.yml
+RUN chmod +x /docker-entrypoint.sh && \
+    chown -R kibana:kibana /opt/kibana/config/kibana.yml
+	
+VOLUME ["/opt/kibana/data/"]
 EXPOSE 5601
+
+WORKDIR /opt/kibana
+
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["kibana"]
 ## ****************************** 参考资料 *****************************************
-## 制作Docker Image: docker build --no-cache -t elk/kibana-6.8.4:arm64v8 .
+## 制作Docker Image: docker build -t elk/kibana-6.8.4:arm64v8 .
