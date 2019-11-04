@@ -49,7 +49,8 @@ RUN set -x && \
     mv /tmp/kibana-$KIBANA_VERSION-linux-x86_64 /opt/kibana && \
     rm /tmp/kibana-$KIBANA_VERSION-linux-x86_64.tar.gz && \
     chown -R kibana:kibana /opt/kibana && \
-    chmod o+w /opt/kibana/optimize/.babelcache.json
+    chmod o+w /opt/kibana/optimize/.babelcache.json && \
+    sed -i 's/--no-warnings/--no-warnings --max_old_space_size=3072/' /opt/kibana/bin/kibana
 
 # install arm version of node
 #RUN set -x && \
