@@ -1,47 +1,50 @@
-#!/bin/bash
+#!/bin/bash -x
 
-set -e
+# If a ZooKeeper container is linked with the alias `zookeeper`, use it.
+# You MUST set ZOOKEEPER_IP in env otherwise.
+[ -n "$ZOOKEEPER_PORT_2181_TCP_ADDR" ] && ZOOKEEPER_IP=$ZOOKEEPER_PORT_2181_TCP_ADDR
+[ -n "$ZOOKEEPER_PORT_2181_TCP_PORT" ] && ZOOKEEPER_PORT=$ZOOKEEPER_PORT_2181_TCP_PORT
 
-# Allow the container to be started with `--user`
-if [[ "$1" = 'zkServer.sh' && "$(id -u)" = '0' ]]; then
-    chown -R zookeeper "$ZOO_DATA_DIR" "$ZOO_DATA_LOG_DIR" "$ZOO_LOG_DIR" "$ZOO_CONF_DIR"
-    exec gosu zookeeper "$0" "$@"
+IP=$(grep "\s${HOSTNAME}$" /etc/hosts | head -n 1 | awk '{print $1}')
+
+# Concatenate the IP:PORT for ZooKeeper to allow setting a full connection
+# string with multiple ZooKeeper hosts
+[ -z "$ZOOKEEPER_CONNECTION_STRING" ] && ZOOKEEPER_CONNECTION_STRING="${ZOOKEEPER_IP}:${ZOOKEEPER_PORT:-2181}"
+
+cat /kafka/config/server.properties.template | sed \
+  -e "s|{{ZOOKEEPER_CONNECTION_STRING}}|${ZOOKEEPER_CONNECTION_STRING}|g" \
+  -e "s|{{ZOOKEEPER_CHROOT}}|${ZOOKEEPER_CHROOT:-}|g" \
+  -e "s|{{KAFKA_BROKER_ID}}|${KAFKA_BROKER_ID:-0}|g" \
+  -e "s|{{KAFKA_ADVERTISED_HOST_NAME}}|${KAFKA_ADVERTISED_HOST_NAME:-$IP}|g" \
+  -e "s|{{KAFKA_PORT}}|${KAFKA_PORT:-9092}|g" \
+  -e "s|{{KAFKA_ADVERTISED_PORT}}|${KAFKA_ADVERTISED_PORT:-9092}|g" \
+  -e "s|{{KAFKA_DELETE_TOPIC_ENABLE}}|${KAFKA_DELETE_TOPIC_ENABLE:-false}|g" \
+  -e "s|{{ZOOKEEPER_CONNECTION_TIMEOUT_MS}}|${ZOOKEEPER_CONNECTION_TIMEOUT_MS:-10000}|g" \
+  -e "s|{{ZOOKEEPER_SESSION_TIMEOUT_MS}}|${ZOOKEEPER_SESSION_TIMEOUT_MS:-10000}|g" \
+  -e "s|{{GROUP_MAX_SESSION_TIMEOUT_MS}}|${GROUP_MAX_SESSION_TIMEOUT_MS:-300000}|g" \
+   > /kafka/config/server.properties
+
+# Kafka's built-in start scripts set the first three system properties here, but
+# we add two more to make remote JMX easier/possible to access in a Docker
+# environment:
+#
+#   1. RMI port - pinning this makes the JVM use a stable one instead of
+#      selecting random high ports each time it starts up.
+#   2. RMI hostname - normally set automatically by heuristics that may have
+#      hard-to-predict results across environments.
+#
+# These allow saner configuration for firewalls, EC2 security groups, Docker
+# hosts running in a VM with Docker Machine, etc. See:
+#
+# https://issues.apache.org/jira/browse/CASSANDRA-7087
+if [ -z $KAFKA_JMX_OPTS ]; then
+    KAFKA_JMX_OPTS="-Dcom.sun.management.jmxremote=true"
+    KAFKA_JMX_OPTS="$KAFKA_JMX_OPTS -Dcom.sun.management.jmxremote.authenticate=false"
+    KAFKA_JMX_OPTS="$KAFKA_JMX_OPTS -Dcom.sun.management.jmxremote.ssl=false"
+    KAFKA_JMX_OPTS="$KAFKA_JMX_OPTS -Dcom.sun.management.jmxremote.rmi.port=$JMX_PORT"
+    KAFKA_JMX_OPTS="$KAFKA_JMX_OPTS -Djava.rmi.server.hostname=${JAVA_RMI_SERVER_HOSTNAME:-$KAFKA_ADVERTISED_HOST_NAME} "
+    export KAFKA_JMX_OPTS
 fi
 
-# Generate the config only if it doesn't exist
-if [[ ! -f "$ZOO_CONF_DIR/zoo.cfg" ]]; then
-    CONFIG="$ZOO_CONF_DIR/zoo.cfg"
-
-    echo "dataDir=$ZOO_DATA_DIR" >> "$CONFIG"
-    echo "dataLogDir=$ZOO_DATA_LOG_DIR" >> "$CONFIG"
-
-    echo "tickTime=$ZOO_TICK_TIME" >> "$CONFIG"
-    echo "initLimit=$ZOO_INIT_LIMIT" >> "$CONFIG"
-    echo "syncLimit=$ZOO_SYNC_LIMIT" >> "$CONFIG"
-
-    echo "autopurge.snapRetainCount=$ZOO_AUTOPURGE_SNAPRETAINCOUNT" >> "$CONFIG"
-    echo "autopurge.purgeInterval=$ZOO_AUTOPURGE_PURGEINTERVAL" >> "$CONFIG"
-    echo "maxClientCnxns=$ZOO_MAX_CLIENT_CNXNS" >> "$CONFIG"
-    echo "standaloneEnabled=$ZOO_STANDALONE_ENABLED" >> "$CONFIG"
-    echo "admin.enableServer=$ZOO_ADMINSERVER_ENABLED" >> "$CONFIG"
-
-    if [[ -z $ZOO_SERVERS ]]; then
-      ZOO_SERVERS="server.1=localhost:2888:3888;2181"
-    fi
-
-    for server in $ZOO_SERVERS; do
-        echo "$server" >> "$CONFIG"
-    done
-
-    if [[ -n $ZOO_4LW_COMMANDS_WHITELIST ]]; then
-        echo "4lw.commands.whitelist=$ZOO_4LW_COMMANDS_WHITELIST" >> "$CONFIG"
-    fi
-
-fi
-
-# Write myid only if it doesn't exist
-if [[ ! -f "$ZOO_DATA_DIR/myid" ]]; then
-    echo "${ZOO_MY_ID:-1}" > "$ZOO_DATA_DIR/myid"
-fi
-
-exec "$@"
+echo "Starting kafka"
+exec /kafka/bin/kafka-server-start.sh /kafka/config/server.properties
