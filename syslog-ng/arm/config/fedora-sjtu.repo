@@ -1,0 +1,19 @@
+[fedora]
+name=Fedora $releasever - $basearch - ftp.sjtu.edu.cn
+failovermethod=priority
+baseurl=http://ftp.sjtu.edu.cn/fedora/linux/releases/$releasever/Everything/$basearch/os/
+# ftp://ftp.sjtu.edu.cn/fedora/linux/releases/$releasever/Everything/$basearch/os/
+# ftp://ftp.cuhk.edu.hk/pub/Linux/fedora/releases/$releasever/Everything/$basearch/os/
+enabled=1
+gpgcheck=0
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-$basearch
+
+[updates]
+name=Fedora $releasever - $basearch - Updates - ftp.sjtu.edu.cn
+failovermethod=priority
+baseurl=http://ftp.sjtu.edu.cn/fedora/linux/updates/$releasever/$basearch/
+# ftp://ftp.sjtu.edu.cn/fedora/linux/updates/$releasever/$basearch/
+# ftp://ftp.cuhk.edu.hk/pub/Linux/fedora/updates/$releasever/$basearch/
+enabled=1
+gpgcheck=0
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-$basearch
