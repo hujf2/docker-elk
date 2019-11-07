@@ -12,13 +12,13 @@ RUN echo 'deb http://download.opensuse.org/repositories/home:/laszlo_budai:/sysl
 RUN apt-get update -qq && apt-get install -y \
     syslog-ng
 
-ADD syslog-ng.conf /etc/syslog-ng/syslog-ng.conf
+# ADD syslog-ng.conf /etc/syslog-ng/syslog-ng.conf
 
 RUN find /usr/lib/ -name 'libjvm.so*' | xargs dirname | tee --append /etc/ld.so.conf.d/openjdk-libjvm.conf
 RUN ldconfig
     # Replace the system() source because inside Docker we can't access /proc/kmsg.
     # https://groups.google.com/forum/#!topic/docker-user/446yoB0Vx6w
-    # sed -i -E 's/^(\s*)system\(\);/\1unix-stream("\/dev\/log");/' /etc/syslog-ng/syslog-ng.conf
+    sed -i -E 's/^(\s*)system\(\);/\1unix-stream("\/dev\/log");/' /etc/syslog-ng/syslog-ng.conf
     # Uncomment 'SYSLOGNG_OPTS="--no-caps"' to avoid the following warning:
     # syslog-ng: Error setting capabilities, capability management disabled; error='Operation not permitted'
     # http://serverfault.com/questions/524518/error-setting-capabilities-capability-management-disabled#
@@ -42,3 +42,5 @@ ENTRYPOINT ["/usr/sbin/syslog-ng", "--no-caps", "-F"]
 # -v /var/log/syslog-ng:/var/log/syslog-ng \
 # --name syslog-ng \
 # idu/syslog-ng-3.24.1:amd
+# 
+
